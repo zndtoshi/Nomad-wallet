@@ -1,0 +1,99 @@
+apply plugin: "com.android.application"
+apply plugin: "com.facebook.react"
+apply plugin: "org.jetbrains.kotlin.android"
+
+/**
+ * Standalone mode configuration (legacy syntax for compatibility)
+ * Forces JavaScript bundling in debug builds
+ */
+project.ext.react = [
+    bundleInDebug: true,
+    devDisabledInDebug: true,
+    enableHermes: true  // Clean and small JS bundle
+]
+
+react {
+    /* Folders */
+    root = file("../../")
+    reactNativeDir = file("../../node_modules/react-native")
+    codegenDir = file("../../node_modules/@react-native/codegen")
+    
+    /* Standalone mode - Bundle JS in debug APK (no Metro required) */
+    // Removed debuggableVariants = [] to allow bundleInDebug: true to take effect
+}
+
+def enableProguardInReleaseBuilds = false
+def jscFlavor = 'org.webkit:android-jsc:+'
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    compileSdk rootProject.ext.compileSdkVersion
+    namespace "com.nomadwallet"
+    
+    // Disable core library desugaring to avoid jlink issues
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled false
+    }
+    
+    // Fix Kotlin version compatibility with nostr-sdk
+    kotlinOptions {
+        jvmTarget = "17"
+        freeCompilerArgs += ["-Xskip-metadata-version-check"]
+    }
+    
+    // Fix react-native-camera variant ambiguity
+    configurations.all {
+        resolutionStrategy {
+            force 'com.google.android.gms:play-services-vision:20.1.3'
+        }
+    }
+
+    defaultConfig {
+        applicationId "com.nomadwallet"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0.0"
+        
+        // Force bundle to be included in debug builds
+        resValue "string", "build_config_package", "com.nomadwallet"
+        
+        // Fix react-native-camera variant ambiguity - use general (non-mlkit) variant
+        missingDimensionStrategy 'react-native-camera', 'general'
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs = ['src/main/assets']
+        }
+    }
+
+    buildTypes {
+        debug {
+            // Use default debug signing
+        }
+        release {
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+}
+
+// Use React Native autolinking (compatible with Bridgeless mode)
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
+
+dependencies {
+    implementation("com.facebook.react:react-android")
+
+    if (hermesEnabled.toBoolean()) {
+        implementation("com.facebook.react:hermes-android")
+    } else {
+        implementation jscFlavor
+    }
+
+    // Rust Nostr SDK (same as android-balancebridge)
+    implementation("org.rust-nostr:nostr-sdk:0.44.1")
+}
+
