@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   qrCode: {
     width: 280,
     height: 280,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.CARD,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   addressBox: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.CARD,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.PRIMARY,
   },
   secondaryButton: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.CARD,
     borderWidth: 2,
     borderColor: COLORS.PRIMARY,
   },
@@ -323,10 +323,12 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#1E3A5F',
     padding: 16,
     borderRadius: 12,
     gap: 12,
+    borderWidth: 1,
+    borderColor: '#2563EB',
   },
   infoIcon: {
     fontSize: 24,
@@ -337,12 +339,12 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1976D2',
+    color: '#93C5FD',
     marginBottom: 8,
   },
   infoText: {
     fontSize: 13,
-    color: '#1976D2',
+    color: '#93C5FD',
     lineHeight: 20,
   },
 });

@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     color: COLORS.TEXT,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.CARD,
     minHeight: 120,
     textAlignVertical: 'top',
   },
@@ -216,13 +216,15 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#1E3A5F',
     borderRadius: 8,
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#2563EB',
   },
   wordCountText: {
     fontSize: 13,
-    color: '#1976D2',
+    color: '#93C5FD',
     fontWeight: '600',
   },
   restoreButton: {
@@ -242,10 +244,12 @@ const styles = StyleSheet.create({
   },
   warning: {
     flexDirection: 'row',
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#78350F',
     padding: 16,
     borderRadius: 12,
     gap: 12,
+    borderWidth: 1,
+    borderColor: '#92400E',
   },
   warningIcon: {
     fontSize: 20,
@@ -253,7 +257,7 @@ const styles = StyleSheet.create({
   warningText: {
     flex: 1,
     fontSize: 13,
-    color: '#E65100',
+    color: '#FCD34D',
     lineHeight: 20,
   },
 });

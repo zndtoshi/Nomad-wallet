@@ -129,6 +129,7 @@ class NostrNativeModule(reactContext: ReactApplicationContext) :
                             }
 
                             override suspend fun handle(relayUrl: RelayUrl, subscriptionId: String, event: Event) {
+                                Log.d(TAG, "handle() called: relay=$relayUrl, subId=$subscriptionId, kind=${event.kind()}, pubkey=${event.author().toHex()}")
                                 onIncomingEvent(relayUrl, subscriptionId, event)
                             }
                         })
@@ -230,31 +231,62 @@ class NostrNativeModule(reactContext: ReactApplicationContext) :
 
                 // Parse filter from JSON
                 val filterObj = JSONObject(filterJson)
-                val filter = Filter()
+                
+                // Build filter step by step, ensuring each method's return value is captured
+                // The Rust SDK Filter API uses a builder pattern where methods may return new Filter instances
+                var filter = Filter()
 
-                // Parse kinds
+                // Parse and add kinds - MUST reassign to capture returned filter
                 if (filterObj.has("kinds")) {
                     val kindsArray = filterObj.getJSONArray("kinds")
                     val kinds = mutableListOf<Kind>()
                     for (i in 0 until kindsArray.length()) {
                         kinds.add(Kind(kindsArray.getInt(i).toUShort()))
                     }
-                    filter.kinds(kinds)
+                    filter = filter.kinds(kinds)
                 }
 
-                // Parse authors
+                // Parse and add authors - THIS IS CRITICAL for filtering noise from public relays
+                // MUST reassign to capture returned filter
                 if (filterObj.has("authors")) {
                     val authorsArray = filterObj.getJSONArray("authors")
                     val authors = mutableListOf<PublicKey>()
                     for (i in 0 until authorsArray.length()) {
-                        authors.add(PublicKey.parse(authorsArray.getString(i)))
+                        val authorHex = authorsArray.getString(i)
+                        try {
+                            authors.add(PublicKey.parse(authorHex))
+                            Log.d(TAG, "Added author filter: $authorHex")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to parse author pubkey: $authorHex", e)
+                        }
                     }
-                    filter.authors(authors)
+                    if (authors.isNotEmpty()) {
+                        filter = filter.authors(authors)
+                        Log.i(TAG, "Subscription filter includes ${authors.size} author(s)")
+                    }
                 }
 
-                // Subscribe
+                // Add limit if present
+                // Note: limit() method might not be available in all Rust SDK versions
+                // Commenting out for now - can be added if SDK supports it
+                // if (filterObj.has("limit")) {
+                //     val limit = filterObj.getInt("limit")
+                //     filter = filter.limit(limit.toUInt())
+                //     Log.d(TAG, "Subscription filter limit: $limit")
+                // }
+
+                // Subscribe with properly configured filter
                 val subId = UUID.randomUUID().toString()
-                c.subscribe(filter)
+                
+                // Log filter details for debugging
+                val kindsArray = filterObj.optJSONArray("kinds")
+                val authorsArray = filterObj.optJSONArray("authors")
+                val kindsStr = if (kindsArray != null) {
+                    (0 until kindsArray.length()).joinToString(",") { kindsArray.getInt(it).toString() }
+                } else "none"
+                Log.i(TAG, "Subscribing with filter: kinds=[$kindsStr], authors=${authorsArray?.length() ?: 0}, limit=${filterObj.optInt("limit", -1)}")
+                
+                c.subscribe(filter)  // ✅ Now uses the properly configured filter
                 subscriptions[subId] = subId // Store subscription
                 
                 Log.i(TAG, "Subscribed with ID: $subId")
@@ -308,6 +340,8 @@ class NostrNativeModule(reactContext: ReactApplicationContext) :
      */
     private fun onIncomingEvent(relayUrl: RelayUrl, subscriptionId: String, event: Event) {
         try {
+            Log.i(TAG, "onIncomingEvent: relay=$relayUrl, subId=$subscriptionId, kind=${event.kind()}, pubkey=${event.author().toHex().substring(0, 16)}...")
+            
             // Get event as JSON string (simplest approach, matches android-balancebridge)
             val eventJson = try {
                 event.asJson()
@@ -332,7 +366,7 @@ class NostrNativeModule(reactContext: ReactApplicationContext) :
                 .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                 .emit("NostrEvent", eventMap)
 
-            Log.d(TAG, "Emitted event to JavaScript (JSON length: ${eventJson.length})")
+            Log.i(TAG, "✅ Emitted event to JavaScript: kind=${event.kind()}, pubkey=${event.author().toHex().substring(0, 16)}..., JSON length=${eventJson.length}")
         } catch (e: Exception) {
             Log.e(TAG, "Error handling incoming event", e)
         }

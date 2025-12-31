@@ -70,6 +70,7 @@ export const COLORS = {
   ERROR: '#EF4444', // Red
   WARNING: '#F59E0B', // Amber
   BACKGROUND: '#0F172A', // Dark background (slate-900)
+  CARD: '#1E293B', // Dark card background (slate-800)
   TEXT: '#F1F5F9', // Light text (slate-100)
   TEXT_SECONDARY: '#94A3B8', // Medium gray (slate-400)
   BORDER: '#334155', // Dark border (slate-700)

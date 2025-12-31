@@ -424,11 +424,13 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   balanceCard: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: COLORS.CARD,
     padding: 20,
     borderRadius: 12,
     marginBottom: 24,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   balanceLabel: {
     fontSize: 13,
@@ -476,7 +478,7 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     color: COLORS.TEXT,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.CARD,
   },
   inputFlex: {
     flex: 1,
@@ -505,7 +507,7 @@ const styles = StyleSheet.create({
   },
   feeButton: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.CARD,
     borderWidth: 2,
     borderColor: COLORS.BORDER,
     padding: 12,
@@ -514,7 +516,7 @@ const styles = StyleSheet.create({
   },
   feeButtonActive: {
     borderColor: COLORS.PRIMARY,
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#78350F',
   },
   feeButtonText: {
     fontSize: 14,
@@ -552,10 +554,12 @@ const styles = StyleSheet.create({
   },
   warning: {
     flexDirection: 'row',
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#78350F',
     padding: 16,
     borderRadius: 12,
     gap: 12,
+    borderWidth: 1,
+    borderColor: '#92400E',
   },
   warningIcon: {
     fontSize: 20,
@@ -563,7 +567,7 @@ const styles = StyleSheet.create({
   warningText: {
     flex: 1,
     fontSize: 13,
-    color: '#E65100',
+    color: '#FCD34D',
     lineHeight: 20,
   },
 });

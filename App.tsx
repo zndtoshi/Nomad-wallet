@@ -45,7 +45,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const STORAGE_KEY_PAIRED = '@nomadwallet:paired';
 
 // Debug version - increment this each time code changes
-const DEBUG_VERSION = 'v.028';
+const DEBUG_VERSION = 'v.034';
 
 function AppContent(): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true);

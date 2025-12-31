@@ -124,6 +124,14 @@ const HomeScreen: React.FC<Props> = ({navigation}) => {
   };
 
   /**
+   * Handle refresh button press
+   */
+  const handleRefresh = async () => {
+    setLoading(true);
+    await loadWalletData();
+  };
+
+  /**
    * Format balance in BTC
    */
   const formatBTC = (sats: number): string => {
@@ -209,9 +217,17 @@ const HomeScreen: React.FC<Props> = ({navigation}) => {
       {/* Header with Settings */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>NomadWallet</Text>
-        <TouchableOpacity onPress={handleSettings} style={styles.settingsButton}>
-          <Text style={styles.settingsIcon}>⚙️</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            onPress={handleRefresh} 
+            style={styles.refreshButton}
+            disabled={loading}>
+            <Text style={styles.refreshIcon}>🔄</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSettings} style={styles.settingsButton}>
+            <Text style={styles.settingsIcon}>⚙️</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Balance Card */}
@@ -346,7 +362,7 @@ const HomeScreen: React.FC<Props> = ({navigation}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: COLORS.BACKGROUND,
   },
   content: {
     padding: 16,
@@ -362,6 +378,17 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.TEXT,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refreshButton: {
+    padding: 8,
+  },
+  refreshIcon: {
+    fontSize: 24,
   },
   settingsButton: {
     padding: 8,
@@ -440,10 +467,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   addressCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.CARD,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   cardTitle: {
     fontSize: 14,
@@ -463,10 +492,12 @@ const styles = StyleSheet.create({
   },
   addressButton: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: COLORS.BACKGROUND,
     padding: 12,
     borderRadius: 10,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   addressButtonText: {
     fontSize: 14,
@@ -515,9 +546,11 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   transactionsSection: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.CARD,
     borderRadius: 16,
     padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   sectionTitle: {
     fontSize: 18,

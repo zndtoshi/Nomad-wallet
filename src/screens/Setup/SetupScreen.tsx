@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   secondaryButton: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.CARD,
     borderWidth: 2,
     borderColor: COLORS.PRIMARY,
   },

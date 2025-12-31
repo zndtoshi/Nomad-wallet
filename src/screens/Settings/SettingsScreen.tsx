@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     color: COLORS.ERROR,
   },
   settingItem: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.CARD,
     padding: 16,
     borderRadius: 10,
     flexDirection: 'row',

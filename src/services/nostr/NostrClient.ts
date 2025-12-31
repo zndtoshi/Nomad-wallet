@@ -244,18 +244,40 @@ export class NostrClient {
       console.log('[NostrClient] Creating subscription via native Rust SDK...');
       
       // Convert Filter to native format
-      const nativeFilter: { kinds: number[]; authors?: string[] } = {
+      const nativeFilter: { kinds: number[]; authors?: string[]; limit?: number } = {
         kinds: filter.kinds || [],
       };
       
       if (filter.authors && filter.authors.length > 0) {
         nativeFilter.authors = filter.authors;
+        console.log(`[NostrClient] ✅ Filter includes ${filter.authors.length} author(s):`, filter.authors);
+      } else {
+        console.warn('[NostrClient] ⚠️ WARNING: No authors filter! Will receive ALL events of specified kinds');
+      }
+      
+      if (filter.limit) {
+        nativeFilter.limit = filter.limit;
       }
 
       // Subscribe using native module
       const nativeSubId = await nostrNativeClient.subscribe(
         nativeFilter,
         (event: NativeNostrEvent) => {
+          // CLIENT-SIDE VALIDATION (safety layer) - Log but don't drop
+          // The native filter should already filter by author, but we log mismatches for debugging
+          if (filter.authors && filter.authors.length > 0) {
+            const pubkeyMatches = filter.authors.some(author => 
+              author.toLowerCase() === event.pubkey.toLowerCase()
+            );
+            if (!pubkeyMatches) {
+              console.warn(`[NostrClient] ⚠️ Received event from non-whitelisted pubkey: ${event.pubkey.substring(0, 16)}... (expected: ${filter.authors[0].substring(0, 16)}...)`);
+              console.warn(`[NostrClient] This should not happen if native filter is working correctly. Processing anyway for debugging.`);
+              // Don't drop - let NomadServer.handleResponse() decide if it's relevant
+            } else {
+              console.log(`[NostrClient] ✅ Event pubkey matches filter: ${event.pubkey.substring(0, 16)}...`);
+            }
+          }
+          
           console.log(`[NostrClient] 📨 Received event for subscription ${subId}:`);
           console.log(`[NostrClient] Event kind: ${event.kind}`);
           console.log(`[NostrClient] Event ID: ${event.id}`);

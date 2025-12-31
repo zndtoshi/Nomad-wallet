@@ -172,19 +172,26 @@ export class NomadServer {
       throw new NomadServerError('Not initialized', 'NOT_CONNECTED');
     }
 
-    // Subscribe to kind 30079 events from server
+    console.log(`[NomadServer] Subscribing to responses from server pubkey: ${this.config.serverPubkey.substring(0, 16)}...`);
+    
+    // Subscribe to kind 30079 events from server only
+    // Limit to recent events to reduce noise from unrelated events
     await this.nostrClient.subscribe(
       {
         kinds: [NOMAD_SERVER_RESPONSE_KIND],
         authors: [this.config.serverPubkey],
+        limit: 100, // Only get recent events to filter out noise
       },
       (event: Event) => {
+        console.log(`[NomadServer] 📨 Received event in subscription callback (kind: ${event.kind}, pubkey: ${event.pubkey.substring(0, 16)}...)`);
         this.handleResponse(event);
       },
       (error: Error) => {
         console.error('[NomadServer] Subscription error:', error);
       },
     );
+    
+    console.log(`[NomadServer] ✅ Subscription created for kind ${NOMAD_SERVER_RESPONSE_KIND} from author ${this.config.serverPubkey.substring(0, 16)}...`);
   }
 
   /**
@@ -192,19 +199,35 @@ export class NomadServer {
    */
   private handleResponse(event: Event): void {
     try {
-      // Parse response content
-      const response = JSON.parse(event.content);
-
-      // Extract request ID from tags or response
+      // Early filter: Extract request ID from tags first (faster than parsing JSON)
       let requestId: string | null = null;
-
-      // Check for "req" tag
       const reqTag = event.tags.find(tag => tag[0] === 'req');
       if (reqTag && reqTag[1]) {
         requestId = reqTag[1];
-      } else if (response.req) {
-        // Fallback to req field in content
+      }
+
+      // Early exit: Only process events that match our pending requests
+      // This prevents processing unrelated events (like Stats events)
+      if (!requestId || !this.pendingRequests.has(requestId)) {
+        // Ignore unrelated events silently to reduce log noise
+        // Only log if we have pending requests (active query in progress)
+        if (this.pendingRequests.size > 0) {
+          console.log(`[NomadServer] Ignoring unrelated event (request ID: ${requestId || 'missing'}, kind: ${event.kind})`);
+        }
+        return;
+      }
+
+      // Parse response content only for events we care about
+      const response = JSON.parse(event.content);
+
+      // Fallback to req field in content if not in tags
+      if (!requestId && response.req) {
         requestId = response.req;
+        // Double-check it's still in pending requests
+        if (!this.pendingRequests.has(requestId)) {
+          console.log(`[NomadServer] Ignoring unrelated event (request ID from content: ${requestId})`);
+          return;
+        }
       }
 
       if (!requestId) {
@@ -212,11 +235,11 @@ export class NomadServer {
         return;
       }
 
-      // Find pending request
+      // Find pending request (we already checked it exists, but get it)
       const pending = this.pendingRequests.get(requestId);
       if (!pending) {
-        console.warn(`[NomadServer] No pending request for ID: ${requestId}`);
-        console.warn(`[NomadServer] Available request IDs:`, Array.from(this.pendingRequests.keys()));
+        // Should not happen due to early check, but handle gracefully
+        console.warn(`[NomadServer] No pending request for ID: ${requestId} (race condition?)`);
         return;
       }
 

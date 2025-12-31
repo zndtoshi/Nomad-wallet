@@ -69,7 +69,7 @@ export class NostrNativeClient {
    * Subscribe to events matching a filter
    */
   async subscribe(
-    filter: { kinds: number[]; authors?: string[] },
+    filter: { kinds: number[]; authors?: string[]; limit?: number },
     onEvent: (event: NostrEvent) => void
   ): Promise<string> {
     const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).slice(2)}`;

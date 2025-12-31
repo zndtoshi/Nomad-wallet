@@ -149,23 +149,24 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   warningBox: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#78350F',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#FCD34D',
+    borderColor: '#92400E',
   },
   warningTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#FCD34D',
     marginBottom: 8,
   },
   warningText: {
     fontSize: 14,
-    color: '#78350F',
+    color: '#FCD34D',
     lineHeight: 20,
+    opacity: 0.9,
   },
   wordsContainer: {
     flexDirection: 'row',
