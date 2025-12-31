@@ -37,38 +37,8 @@ const SetupScreen: React.FC<Props> = ({navigation}) => {
 
       setLoading(false);
 
-      // Show mnemonic to user in alert
-      Alert.alert(
-        '🔐 Backup Your Wallet',
-        `Write down these 12 words in order. You will need them to recover your wallet.\n\n${mnemonic}\n\n⚠️ NEVER share these words with anyone!`,
-        [
-          {
-            text: 'I saved it securely',
-            onPress: () => {
-              // Confirm they saved it
-              Alert.alert(
-                '✅ Confirm Backup',
-                'Have you written down all 12 words in the correct order?',
-                [
-                  {
-                    text: 'No, show again',
-                    onPress: () => handleCreateWallet(),
-                    style: 'cancel',
-                  },
-                  {
-                    text: 'Yes, I saved it',
-                    onPress: () => {
-                      wallet.markAsBackedUp();
-                      navigation.replace('Pair');
-                    },
-                  },
-                ],
-              );
-            },
-          },
-        ],
-        {cancelable: false},
-      );
+      // Navigate to mnemonic display screen
+      navigation.navigate('MnemonicDisplay', {mnemonic});
     } catch (error: any) {
       setLoading(false);
       Alert.alert(

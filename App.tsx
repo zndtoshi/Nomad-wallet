@@ -15,6 +15,7 @@ import {NostrService} from './src/services/nostr/NostrService';
 // Screens - Setup Flow
 import SetupScreen from './src/screens/Setup/SetupScreen';
 import RestoreScreen from './src/screens/Setup/RestoreScreen';
+import MnemonicDisplayScreen from './src/screens/Setup/MnemonicDisplayScreen';
 import PairScreen from './src/screens/Setup/PairScreen';
 
 // Screens - Main App
@@ -30,6 +31,7 @@ import {runRuntimeTests} from './src/tests/RuntimeTest';
 export type RootStackParamList = {
   Setup: undefined;
   Restore: undefined;
+  MnemonicDisplay: {mnemonic: string};
   Pair: undefined;
   Home: undefined;
   Send: undefined;
@@ -43,7 +45,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const STORAGE_KEY_PAIRED = '@nomadwallet:paired';
 
 // Debug version - increment this each time code changes
-const DEBUG_VERSION = 'v.010';
+const DEBUG_VERSION = 'v.028';
 
 function AppContent(): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true);
@@ -96,8 +98,21 @@ function AppContent(): React.JSX.Element {
 
       console.log('[App] Step 3: Loading wallet...');
       // Load existing wallet
-      await wallet.loadWallet();
-      console.log('[App] Wallet loaded successfully');
+      const loadSuccess = await wallet.loadWallet();
+      
+      // Verify wallet is actually initialized
+      const isInitialized = wallet.isInitialized();
+      console.log(`[App] Wallet load result: ${loadSuccess}, initialized: ${isInitialized}`);
+      
+      if (!loadSuccess || !isInitialized) {
+        // Wallet failed to load or initialize - show setup
+        console.log('[App] Wallet failed to load or initialize, showing setup screen');
+        setInitialRoute('Setup');
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log('[App] Wallet loaded and initialized successfully');
 
       console.log('[App] Step 4: Checking pairing status...');
       // Check if paired with server
@@ -138,7 +153,7 @@ function AppContent(): React.JSX.Element {
 
   return (
     <View style={styles.appContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
       <NavigationContainer>
         <Stack.Navigator
           initialRouteName={initialRoute}
@@ -166,6 +181,14 @@ function AppContent(): React.JSX.Element {
             component={RestoreScreen}
             options={{
               title: 'Restore Wallet',
+              headerBackTitle: 'Back',
+            }}
+          />
+          <Stack.Screen
+            name="MnemonicDisplay"
+            component={MnemonicDisplayScreen}
+            options={{
+              title: 'Backup Wallet',
               headerBackTitle: 'Back',
             }}
           />
@@ -238,7 +261,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#0F172A',
   },
   versionIndicator: {
     position: 'absolute',

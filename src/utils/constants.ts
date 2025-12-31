@@ -62,16 +62,16 @@ export const NOMAD_SERVER_CONFIG = {
   RETRY_DELAY: 5000, // 5 seconds
 } as const;
 
-// UI Constants
+// UI Constants - Dark Mode
 export const COLORS = {
   PRIMARY: '#F97316', // Orange
   SECONDARY: '#1E293B', // Dark Slate
   SUCCESS: '#10B981', // Green
   ERROR: '#EF4444', // Red
   WARNING: '#F59E0B', // Amber
-  BACKGROUND: '#FFFFFF',
-  TEXT: '#1F2937',
-  TEXT_SECONDARY: '#6B7280',
-  BORDER: '#E5E7EB',
+  BACKGROUND: '#0F172A', // Dark background (slate-900)
+  TEXT: '#F1F5F9', // Light text (slate-100)
+  TEXT_SECONDARY: '#94A3B8', // Medium gray (slate-400)
+  BORDER: '#334155', // Dark border (slate-700)
 } as const;
 

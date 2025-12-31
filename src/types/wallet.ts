@@ -133,9 +133,21 @@ export interface WalletInfo {
  * Wallet-specific error
  */
 export class WalletError extends Error {
+  public code:
+    | 'NOT_INITIALIZED'
+    | 'ALREADY_EXISTS'
+    | 'INVALID_MNEMONIC'
+    | 'INSUFFICIENT_FUNDS'
+    | 'INVALID_ADDRESS'
+    | 'TRANSACTION_BUILD_FAILED'
+    | 'TRANSACTION_SIGN_FAILED'
+    | 'BROADCAST_FAILED'
+    | 'STORAGE_ERROR'
+    | 'BDK_ERROR';
+
   constructor(
     message: string,
-    public code:
+    code:
       | 'NOT_INITIALIZED'
       | 'ALREADY_EXISTS'
       | 'INVALID_MNEMONIC'
@@ -149,6 +161,9 @@ export class WalletError extends Error {
   ) {
     super(message);
     this.name = 'WalletError';
+    this.code = code;
+    // Fix prototype chain for proper instanceof checks
+    Object.setPrototypeOf(this, WalletError.prototype);
   }
 }
 

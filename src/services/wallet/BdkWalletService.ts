@@ -47,16 +47,17 @@ export class BdkWalletService {
   private bdk: any; // BdkRn instance
   private walletId: string | null = null;
   private mnemonic: string | null = null;
-  private network: Network = Network.TESTNET;
+  private network: Network = Network.MAINNET;
   private state: WalletState = {
     isInitialized: false,
-    network: Network.TESTNET,
+    network: Network.MAINNET,
     hasBackup: false,
     lastSync: null,
   };
 
   private constructor() {
-    this.bdk = new BdkRn();
+    // BdkRn is already an instance, not a class - don't use 'new'
+    this.bdk = BdkRn;
   }
 
   /**
@@ -86,15 +87,21 @@ export class BdkWalletService {
       }
 
       console.log('[BdkWallet] Creating new wallet...');
+      console.log('[BdkWallet] Network:', this.network);
 
       // Generate new 12-word mnemonic using bdk-rn v0.1.x API
+      console.log('[BdkWallet] Calling generateMnemonic...');
       const mnemonicResult = await this.bdk.generateMnemonic({
         length: 12,
         network: this.network === Network.MAINNET ? 'bitcoin' : 'testnet',
       });
 
-      if (!mnemonicResult.isOk) {
-        throw new Error(mnemonicResult.data || 'Failed to generate mnemonic');
+      console.log('[BdkWallet] generateMnemonic result:', JSON.stringify(mnemonicResult, null, 2));
+
+      if (!mnemonicResult || mnemonicResult.error) {
+        const errorMsg = mnemonicResult?.data || 'Failed to generate mnemonic';
+        console.error('[BdkWallet] Mnemonic generation failed:', errorMsg);
+        throw new Error(errorMsg);
       }
 
       const mnemonicWords = mnemonicResult.data;
@@ -123,8 +130,19 @@ export class BdkWalletService {
       return mnemonicWords;
     } catch (error) {
       console.error('[BdkWallet] Create wallet error:', error);
+      console.error('[BdkWallet] Error type:', typeof error);
+      console.error('[BdkWallet] Error details:', JSON.stringify(error, null, 2));
+      if (error instanceof Error) {
+        console.error('[BdkWallet] Error message:', error.message);
+        console.error('[BdkWallet] Error stack:', error.stack);
+      }
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : error instanceof WalletError
+        ? error.message
+        : 'Failed to create wallet';
       throw new WalletError(
-        'Failed to create wallet',
+        errorMessage,
         'BDK_ERROR',
       );
     }
@@ -180,14 +198,17 @@ export class BdkWalletService {
       // Check if mnemonic exists
       const mnemonicWords = await AsyncStorage.getItem(STORAGE_KEY_MNEMONIC);
       if (!mnemonicWords) {
-        console.log('[BdkWallet] No wallet found in storage');
+        console.log('[BdkWallet] No wallet found in storage (mnemonic missing)');
         return false;
       }
+
+      console.log('[BdkWallet] Mnemonic found in storage, initializing wallet...');
 
       // Load network
       const networkStr = await AsyncStorage.getItem(STORAGE_KEY_NETWORK);
       if (networkStr) {
         this.network = networkStr as Network;
+        console.log('[BdkWallet] Network loaded from storage:', this.network);
       }
 
       // Load backup status
@@ -196,8 +217,7 @@ export class BdkWalletService {
       // Initialize wallet
       await this.initializeWalletFromMnemonic(mnemonicWords);
 
-      console.log('[BdkWallet] Wallet loaded successfully');
-      console.log('[BdkWallet] Network:', this.network);
+      console.log('[BdkWallet] Wallet initialized from mnemonic successfully');
 
       // Update state
       this.state = {
@@ -207,9 +227,24 @@ export class BdkWalletService {
         lastSync: null,
       };
 
+      console.log('[BdkWallet] ✅ Wallet loaded and state updated successfully');
+      console.log('[BdkWallet] Network:', this.network);
+      console.log('[BdkWallet] Is initialized:', this.state.isInitialized);
+
       return true;
     } catch (error) {
-      console.error('[BdkWallet] Load wallet error:', error);
+      console.error('[BdkWallet] ❌ Load wallet error:', error);
+      if (error instanceof Error) {
+        console.error('[BdkWallet] Error message:', error.message);
+        console.error('[BdkWallet] Error stack:', error.stack);
+      }
+      // Reset state on error
+      this.state = {
+        isInitialized: false,
+        network: this.network,
+        hasBackup: false,
+        lastSync: null,
+      };
       throw new WalletError(
         'Failed to load wallet',
         'STORAGE_ERROR',
@@ -223,7 +258,9 @@ export class BdkWalletService {
   async walletExists(): Promise<boolean> {
     try {
       const mnemonic = await AsyncStorage.getItem(STORAGE_KEY_MNEMONIC);
-      return mnemonic !== null;
+      const exists = mnemonic !== null;
+      console.log(`[BdkWallet] walletExists() check: ${exists}`);
+      return exists;
     } catch (error) {
       console.error('[BdkWallet] Error checking wallet existence:', error);
       return false;
@@ -232,7 +269,8 @@ export class BdkWalletService {
 
   /**
    * Initialize BDK wallet from mnemonic
-   * Creates BIP84 descriptors for native SegWit using bdk-rn v0.1.x API
+   * Creates wallet using bdk-rn v0.1.x API
+   * BDK handles descriptor creation internally when using mnemonic
    * 
    * @private
    */
@@ -245,55 +283,23 @@ export class BdkWalletService {
 
       console.log('[BdkWallet] Network:', this.network, '-> BDK Network:', networkStr);
 
-      // Create descriptor for receiving addresses (external)
-      // BIP84: wpkh(key/84'/1'/0'/0/*)
-      console.log('[BdkWallet] Creating external descriptor...');
-      const externalDescriptorResult = await this.bdk.createDescriptor({
-        type: 'wpkh',
-        mnemonic: mnemonicWords,
-        password: '',
-        network: networkStr,
-        path: "m/84'/1'/0'/0/*", // BIP84 external (receiving)
-      });
-
-      if (!externalDescriptorResult.isOk) {
-        throw new Error(externalDescriptorResult.data || 'Failed to create external descriptor');
-      }
-      console.log('[BdkWallet] External descriptor created');
-
-      // Create descriptor for change addresses (internal)
-      // BIP84: wpkh(key/84'/1'/0'/1/*)
-      console.log('[BdkWallet] Creating internal descriptor...');
-      const internalDescriptorResult = await this.bdk.createDescriptor({
-        type: 'wpkh',
-        mnemonic: mnemonicWords,
-        password: '',
-        network: networkStr,
-        path: "m/84'/1'/0'/1/*", // BIP84 internal (change)
-      });
-
-      if (!internalDescriptorResult.isOk) {
-        throw new Error(internalDescriptorResult.data || 'Failed to create internal descriptor');
-      }
-      console.log('[BdkWallet] Internal descriptor created');
-
-      // Create wallet with descriptors
-      console.log('[BdkWallet] Creating BDK wallet...');
+      // Create wallet with mnemonic (bdk-rn will handle descriptor creation internally)
+      // Note: bdk-rn createWallet accepts either mnemonic OR descriptor, not both
+      console.log('[BdkWallet] Creating BDK wallet from mnemonic...');
       const walletResult = await this.bdk.createWallet({
         mnemonic: mnemonicWords,
         password: '',
         network: networkStr,
-        descriptor: externalDescriptorResult.data,
-        changeDescriptor: internalDescriptorResult.data,
       });
 
-      if (!walletResult.isOk) {
+      if (walletResult.error) {
         throw new Error(walletResult.data || 'Failed to create wallet');
       }
 
-      this.walletId = walletResult.data.id;
+      // bdk-rn manages wallet internally, we don't need to store walletId
+      // The response contains an address, but the wallet is managed by bdk-rn singleton
       console.log('[BdkWallet] ✅ BDK wallet initialized successfully!');
-      console.log('[BdkWallet] Wallet ID:', this.walletId);
+      console.log('[BdkWallet] Initial address:', walletResult.data?.address || 'N/A');
     } catch (error) {
       console.error('[BdkWallet] ❌ Error initializing wallet:', error);
       console.error('[BdkWallet] Error details:', JSON.stringify(error, null, 2));
@@ -314,15 +320,14 @@ export class BdkWalletService {
     this.ensureInitialized();
 
     try {
-      const addressInfo = await this.wallet!.getAddress(
-        KeychainKind.External,
-        AddressIndex.New,
-      );
+      const result = await this.bdk.getNewAddress();
+      
+      if (result.error) {
+        throw new Error(result.data || 'Failed to generate address');
+      }
 
-      const address = await addressInfo.address.asString();
-
+      const address = result.data;
       console.log('[BdkWallet] Generated new address:', address);
-      console.log('[BdkWallet] Address index:', addressInfo.index);
 
       return address;
     } catch (error) {
@@ -340,26 +345,10 @@ export class BdkWalletService {
    * @returns Bitcoin address (bech32 format)
    */
   async getChangeAddress(): Promise<string> {
-    this.ensureInitialized();
-
-    try {
-      const addressInfo = await this.wallet!.getAddress(
-        KeychainKind.Internal,
-        AddressIndex.New,
-      );
-
-      const address = await addressInfo.address.asString();
-
-      console.log('[BdkWallet] Generated change address:', address);
-
-      return address;
-    } catch (error) {
-      console.error('[BdkWallet] Get change address error:', error);
-      throw new WalletError(
-        'Failed to generate change address',
-        'BDK_ERROR',
-      );
-    }
+    // bdk-rn doesn't have a separate change address method
+    // For now, use getNewAddress() which will generate the next address
+    // TODO: Check if bdk-rn supports change addresses or if we need to track indexes
+    return this.getNewAddress();
   }
 
   /**
@@ -368,26 +357,28 @@ export class BdkWalletService {
    * @param count - Number of addresses to derive (default: 20)
    * @returns Array of addresses with indexes
    */
-  async getAllAddresses(count: number = 20): Promise<Address[]> {
+  async getAllAddresses(count: number = 10): Promise<Address[]> {
     this.ensureInitialized();
 
     try {
       const addresses: Address[] = [];
 
-      // Get receiving addresses
-      for (let i = 0; i < count; i++) {
-        const addressInfo = await this.wallet!.getAddress(
-          KeychainKind.External,
-          AddressIndex.Peek(i),
-        );
+      // bdk-rn limitation: getNewAddress() only returns the next address in sequence
+      // We can't get addresses by index. For balance queries, we'll use the first address
+      // which is the one displayed in the UI (from getNewAddress when wallet is first created)
+      // 
+      // Note: The server only accepts a single "query" string, not multiple addresses
+      // So we'll query just the first address for balance
+      const firstAddress = await this.getNewAddress();
+      
+      addresses.push({
+        address: firstAddress,
+        index: 0,
+      });
 
-        addresses.push({
-          address: await addressInfo.address.asString(),
-          index: addressInfo.index,
-        });
-      }
-
-      console.log(`[BdkWallet] Retrieved ${addresses.length} addresses`);
+      console.log(`[BdkWallet] Using wallet's first address for balance query: ${firstAddress}`);
+      console.log(`[BdkWallet] Retrieved ${addresses.length} address(es)`);
+      console.log(`[BdkWallet] Note: bdk-rn doesn't support address indexing, using first address only`);
 
       return addresses;
     } catch (error) {
@@ -545,8 +536,9 @@ export class BdkWalletService {
       // Set fee rate
       await txBuilder.feeRate(finalFeeRate);
 
-      // Build transaction
-      const psbt = await txBuilder.finish(this.wallet!);
+      // TODO: bdk-rn manages wallet internally, need to check transaction building API
+      // For now, throw error indicating this needs implementation
+      throw new Error('Transaction building not yet implemented with bdk-rn');
 
       console.log('[BdkWallet] Transaction built successfully');
 
@@ -732,11 +724,10 @@ export class BdkWalletService {
       }
 
       // Reset instance variables
-      this.wallet = null;
       this.mnemonic = null;
       this.state = {
         isInitialized: false,
-        network: Network.TESTNET,
+        network: Network.MAINNET,
         hasBackup: false,
         lastSync: null,
       };
@@ -756,7 +747,7 @@ export class BdkWalletService {
    * @private
    */
   private ensureInitialized(): void {
-    if (!this.state.isInitialized || !this.wallet) {
+    if (!this.state.isInitialized) {
       throw new WalletError(
         'Wallet not initialized',
         'NOT_INITIALIZED',

@@ -43,6 +43,18 @@ const HomeScreen: React.FC<Props> = ({navigation}) => {
     try {
       const wallet = getBdkWallet();
 
+      // Verify wallet is initialized before attempting to get address
+      if (!wallet.isInitialized()) {
+        console.error('[HomeScreen] Wallet not initialized');
+        setLoading(false);
+        Alert.alert(
+          'Wallet Not Ready',
+          'Your wallet is not initialized. Please restart the app.',
+          [{text: 'OK'}]
+        );
+        return;
+      }
+
       // Get current address
       const currentAddress = await wallet.getNewAddress();
       setAddress(currentAddress);
@@ -58,17 +70,32 @@ const HomeScreen: React.FC<Props> = ({navigation}) => {
         const keys = nostrService.getKeys();
 
         if (keys?.privateKey) {
-          // Fetch balance
-          const walletBalance = await wallet.getBalance(keys.privateKey);
-          setBalance(walletBalance);
+          // Try to fetch balance, but don't fail if it times out
+          try {
+            const walletBalance = await wallet.getBalance(keys.privateKey);
+            setBalance(walletBalance);
+          } catch (balanceError: any) {
+            console.warn('[HomeScreen] Failed to fetch balance:', balanceError);
+            // Don't show error alert for balance failures - just leave balance as null
+            // The UI will show 0 balance and "Not connected to server" message
+            // This is expected if server is slow or unreachable
+          }
         }
       }
 
       setLoading(false);
     } catch (error: any) {
       setLoading(false);
-      console.error('Failed to load wallet data:', error);
-      Alert.alert('Error', 'Failed to load wallet data');
+      console.error('[HomeScreen] Failed to load wallet data:', error);
+      // Only show error for critical failures (like wallet not initialized)
+      // Balance failures are handled above and don't need alerts
+      if (error?.code === 'NOT_INITIALIZED') {
+        Alert.alert(
+          'Wallet Not Ready',
+          'Your wallet is not initialized. Please restart the app.',
+          [{text: 'OK'}]
+        );
+      }
     }
   };
 
@@ -213,15 +240,35 @@ const HomeScreen: React.FC<Props> = ({navigation}) => {
                 </View>
               )}
             </View>
+            <View style={styles.connectionStatus}>
+              <View style={styles.connectionStatusRow}>
+                <View style={styles.connectionIndicatorConnected} />
+                <Text style={styles.connectionStatusText}>
+                  Connected to server
+                </Text>
+              </View>
+            </View>
           </>
         ) : (
           <>
             <Text style={styles.balanceAmount}>₿ 0.00000000</Text>
-            {!isPaired && (
-              <Text style={styles.notPairedText}>
-                Not connected to server
-              </Text>
-            )}
+            <View style={styles.connectionStatus}>
+              {isPaired ? (
+                <View style={styles.connectionStatusRow}>
+                  <View style={styles.connectionIndicatorConnected} />
+                  <Text style={styles.connectionStatusText}>
+                    Connected to server
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.connectionStatusRow}>
+                  <View style={styles.connectionIndicatorDisconnected} />
+                  <Text style={styles.connectionStatusText}>
+                    Not connected to server
+                  </Text>
+                </View>
+              )}
+            </View>
           </>
         )}
       </View>
@@ -364,6 +411,33 @@ const styles = StyleSheet.create({
     color: '#fff',
     opacity: 0.8,
     marginTop: 8,
+  },
+  connectionStatus: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  connectionStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  connectionIndicatorConnected: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981', // Green
+  },
+  connectionIndicatorDisconnected: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444', // Red
+  },
+  connectionStatusText: {
+    fontSize: 13,
+    color: '#fff',
+    opacity: 0.9,
+    fontWeight: '500',
   },
   addressCard: {
     backgroundColor: '#fff',

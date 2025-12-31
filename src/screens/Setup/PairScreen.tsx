@@ -20,6 +20,7 @@ import type {RootStackParamList} from '../../../App';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {getNomadServer, NomadServer} from '../../services/nostr/NomadServer';
 import type {NomadServerQRPayload} from '../../types/nomadserver';
+import {getBdkWallet} from '../../services/wallet/BdkWalletService';
 import {COLORS} from '../../utils/constants';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Pair'>;
@@ -113,22 +114,64 @@ const PairScreen: React.FC<Props> = ({navigation}) => {
 
       setLoading(false);
 
-      Alert.alert(
-        '✅ Connected',
-        'Successfully connected to your NomadServer!',
-        [
-          {
-            text: 'Continue',
-            onPress: () => navigation.replace('Home'),
-          },
-        ],
-      );
+      // Check if wallet exists before navigating
+      console.log('[PairScreen] Getting wallet instance...');
+      const wallet = getBdkWallet();
+      console.log('[PairScreen] Wallet instance obtained');
+      
+      console.log('[PairScreen] Checking wallet existence...');
+      const walletExists = await wallet.walletExists();
+      console.log('[PairScreen] Checking wallet initialization...');
+      const isInitialized = wallet.isInitialized();
+
+      console.log('[PairScreen] Wallet check after pairing:');
+      console.log('[PairScreen] - walletExists:', walletExists);
+      console.log('[PairScreen] - isInitialized:', isInitialized);
+
+      if (!walletExists || !isInitialized) {
+        // No wallet exists - navigate to Setup to create one
+        console.log('[PairScreen] No wallet found, navigating to Setup');
+        Alert.alert(
+          '✅ Connected',
+          'Successfully connected to your NomadServer! Now create your wallet to continue.',
+          [
+            {
+              text: 'Create Wallet',
+              onPress: () => {
+                console.log('[PairScreen] Navigating to Setup screen');
+                navigation.replace('Setup');
+              },
+            },
+          ],
+        );
+      } else {
+        // Wallet exists - navigate to Home
+        console.log('[PairScreen] Wallet exists, navigating to Home');
+        Alert.alert(
+          '✅ Connected',
+          'Successfully connected to your NomadServer!',
+          [
+            {
+              text: 'Continue',
+              onPress: () => {
+                console.log('[PairScreen] Navigating to Home screen');
+                navigation.replace('Home');
+              },
+            },
+          ],
+        );
+      }
     } catch (error: any) {
       setLoading(false);
+      console.error('[PairScreen] Initialization error:', error);
+      console.error('[PairScreen] Error type:', typeof error);
+      console.error('[PairScreen] Error constructor:', error?.constructor?.name);
+      console.error('[PairScreen] Error stack:', error?.stack);
+      
       const errorMessage = error instanceof Error
         ? error.message
-        : 'Failed to connect to server. Please try again.';
-      console.error('[PairScreen] Initialization error:', error);
+        : error?.toString() || 'Failed to connect to server. Please try again.';
+      
       Alert.alert(
         'Connection Failed',
         errorMessage,
@@ -152,7 +195,19 @@ const PairScreen: React.FC<Props> = ({navigation}) => {
           text: 'Skip',
           onPress: async () => {
             await AsyncStorage.setItem(STORAGE_KEY_PAIRED, 'skipped');
-            navigation.replace('Home');
+            
+            // Check if wallet exists before navigating
+            const wallet = getBdkWallet();
+            const walletExists = await wallet.walletExists();
+            const isInitialized = wallet.isInitialized();
+
+            if (!walletExists || !isInitialized) {
+              // No wallet exists - navigate to Setup
+              navigation.replace('Setup');
+            } else {
+              // Wallet exists - navigate to Home
+              navigation.replace('Home');
+            }
           },
         },
       ],

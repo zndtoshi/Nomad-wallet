@@ -95,7 +95,7 @@ export class NomadServer {
     this.config = {
       serverPubkey: qrPayload.nodePubkey,
       relays: qrPayload.relays,
-      requestTimeout: 30000, // 30 seconds default
+      requestTimeout: 60000, // 60 seconds default (increased for slow servers)
     };
 
     try {
@@ -139,7 +139,7 @@ export class NomadServer {
   async initializeFromConfig(config: NomadServerConfig): Promise<void> {
     this.config = {
       ...config,
-      requestTimeout: config.requestTimeout || 30000,
+      requestTimeout: config.requestTimeout || 60000,
     };
 
     try {
@@ -216,8 +216,11 @@ export class NomadServer {
       const pending = this.pendingRequests.get(requestId);
       if (!pending) {
         console.warn(`[NomadServer] No pending request for ID: ${requestId}`);
+        console.warn(`[NomadServer] Available request IDs:`, Array.from(this.pendingRequests.keys()));
         return;
       }
+
+      console.log(`[NomadServer] ✅ Found pending request for ID: ${requestId}`);
 
       // Clear timeout
       clearTimeout(pending.timeout);
@@ -259,6 +262,8 @@ export class NomadServer {
     const responsePromise = new Promise<T>((resolve, reject) => {
       // Set timeout
       const timeout = setTimeout(() => {
+        console.error(`[NomadServer] ⏱️ Request timeout after ${this.config!.requestTimeout}ms for request: ${requestId}`);
+        console.error(`[NomadServer] Pending requests:`, Array.from(this.pendingRequests.keys()));
         this.pendingRequests.delete(requestId);
         reject(
           new NomadServerError('Request timeout', 'TIMEOUT'),
@@ -292,9 +297,14 @@ export class NomadServer {
       };
 
       // Publish event
+      console.log(`[NomadServer] Publishing request: ${requestData.type} (${requestId})`);
+      console.log(`[NomadServer] Request content:`, JSON.stringify(requestWithId, null, 2));
+      console.log(`[NomadServer] Server pubkey: ${this.config.serverPubkey}`);
+      console.log(`[NomadServer] Timeout: ${this.config.requestTimeout}ms`);
+      
       await this.nostrClient.publish(event, privateKey);
 
-      console.log(`[NomadServer] Sent request: ${requestData.type} (${requestId})`);
+      console.log(`[NomadServer] ✅ Request published, waiting for response (${requestId})...`);
 
       // Wait for response
       return await responsePromise;
@@ -311,18 +321,24 @@ export class NomadServer {
   }
 
   /**
-   * Get balance and transactions for addresses
+   * Get balance and transactions for address(es)
+   * NOTE: Server expects single "query" string, not "addresses" array
+   * For multiple addresses, we'll query them sequentially or use the first one
    */
   async getBalance(
     addresses: string | string[],
     privateKey: string,
   ): Promise<BalanceResponse> {
-    const addressArray = Array.isArray(addresses) ? addresses : [addresses];
+    // Server expects single "query" string, not array
+    // For now, use first address (or the single address if string)
+    const queryAddress = Array.isArray(addresses) ? addresses[0] : addresses;
 
     const request: BitcoinLookupRequest = {
       type: 'bitcoin_lookup',
-      addresses: addressArray,
+      query: queryAddress, // Server expects "query" (single string)
     };
+
+    console.log(`[NomadServer] getBalance request: query=${queryAddress}`);
 
     try {
       const response = await this.sendRequest<BalanceResponse>(

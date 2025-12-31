@@ -35,12 +35,31 @@ const ReceiveScreen: React.FC<Props> = () => {
   const loadAddress = async () => {
     try {
       const wallet = getBdkWallet();
+      
+      // Verify wallet is initialized before attempting to get address
+      if (!wallet.isInitialized()) {
+        console.error('[ReceiveScreen] Wallet not initialized');
+        setLoading(false);
+        Alert.alert(
+          'Wallet Not Ready',
+          'Your wallet is not initialized. Please go back to setup.',
+          [{text: 'OK'}]
+        );
+        return;
+      }
+      
       const currentAddress = await wallet.getNewAddress();
       setAddress(currentAddress);
       setLoading(false);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[ReceiveScreen] Failed to generate address:', error);
       setLoading(false);
-      Alert.alert('Error', 'Failed to generate address');
+      const errorMessage = error?.message || 'Failed to generate address';
+      Alert.alert(
+        'Error',
+        errorMessage,
+        [{text: 'OK'}]
+      );
     }
   };
 

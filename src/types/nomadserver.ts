@@ -44,10 +44,12 @@ export interface NomadServerRequest {
 
 /**
  * Request to query balance and transactions for addresses
+ * NOTE: Server expects "query" (single string), not "addresses" (array)
+ * This matches umbrel-balancebridge server implementation
  */
 export interface BitcoinLookupRequest extends NomadServerRequest {
   type: 'bitcoin_lookup';
-  addresses: string[]; // Bitcoin addresses to query
+  query: string; // Single Bitcoin address to query (server expects this format)
 }
 
 /**
@@ -205,9 +207,16 @@ export interface NomadServerConfig {
  * NomadServer-specific error
  */
 export class NomadServerError extends Error {
+  public code:
+    | 'TIMEOUT'
+    | 'NOT_CONNECTED'
+    | 'INVALID_RESPONSE'
+    | 'SERVER_ERROR'
+    | 'NETWORK_ERROR';
+
   constructor(
     message: string,
-    public code:
+    code:
       | 'TIMEOUT'
       | 'NOT_CONNECTED'
       | 'INVALID_RESPONSE'
@@ -216,6 +225,9 @@ export class NomadServerError extends Error {
   ) {
     super(message);
     this.name = 'NomadServerError';
+    this.code = code;
+    // Fix prototype chain for proper instanceof checks
+    Object.setPrototypeOf(this, NomadServerError.prototype);
   }
 }
 
